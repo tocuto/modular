@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'src/release.lua'
+
+jobs:
+  preprocess:
+    name: Preprocess, link and create release
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+
+      - uses: leafo/gh-actions-lua@v8.0.0
+        with:
+          luaVersion: "5.2"
+
+      - uses: leafo/gh-actions-luarocks@v4.0.0
+
+      - name: Install LuaFileSystem
+        run: luarocks install luafilesystem
+
+      - name: Generate preprocessed debug and release modules
+        run: lua preprocess.lua
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v1
+        with:
+          python-version: "3.8"
+
+      - name: Install slpp and requests
+        run: pip install requests git+https://github.com/SirAnthony/slpp
+
+      - name: Run linker
+        id: linker
+        run: python link.py
+
+      - name: Zip built files
+        run: zip -r ../dist.zip *
+        working-directory: ./dist
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.linker.outputs.version }}
+          release_name: ${{ steps.linker.outputs.version }}
+
+      - name: Upload assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist.zip
+          asset_name: dist.zip
+          asset_content_type: application/zip
