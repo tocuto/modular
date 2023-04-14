@@ -1,5 +1,12 @@
 local lfs = require("lfs")
-local prepdir = require("prepdir")
+local Processor = require("./prepdir/prepdir")
+
+
+local function prepdir(content, settings)
+	local processor = Processor:new(content)
+	processor.envTbl = setmetatable({}, {__index = settings})
+	return processor:execute()
+end
 
 
 local generate
